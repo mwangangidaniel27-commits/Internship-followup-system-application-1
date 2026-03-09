@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../models/student_model.dart';
 
 class StudentService {
@@ -7,26 +8,50 @@ class StudentService {
   // Get student profile by user ID
   Future<StudentModel?> getStudentByUserId(String userId) async {
     try {
-      final response = await _supabase
+      // First get student record
+      final studentResponse = await _supabase
           .from('students')
-          .select('''
-            *,
-            users!students_user_id_fkey(full_name),
-            supervisor:users!students_supervisor_id_fkey(full_name)
-          ''')
+          .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
+
+      if (studentResponse == null) {
+        if (kDebugMode) {
+          print('No student profile found for user: $userId');
+        }
+        return null;
+      }
+
+      // Get user full name
+      final userResponse = await _supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+
+      // Get supervisor name if supervisor_id exists
+      String? supervisorName;
+      if (studentResponse['supervisor_id'] != null) {
+        final supervisorResponse = await _supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', studentResponse['supervisor_id'])
+            .maybeSingle();
+        supervisorName = supervisorResponse?['full_name'];
+      }
 
       // Flatten the response
-      final flattenedData = {
-        ...response,
-        'full_name': response['users']?['full_name'],
-        'supervisor_name': response['supervisor']?['full_name'],
+      final flattenedData = <String, dynamic>{
+        ...Map<String, dynamic>.from(studentResponse),
+        'full_name': userResponse?['full_name'],
+        'supervisor_name': supervisorName,
       };
 
       return StudentModel.fromJson(flattenedData);
     } catch (e) {
-      print('Error fetching student: $e');
+      if (kDebugMode) {
+        print('Error fetching student: $e');
+      }
       return null;
     }
   }
@@ -40,7 +65,9 @@ class StudentService {
           .eq('id', studentId);
       return true;
     } catch (e) {
-      print('Error updating student: $e');
+      if (kDebugMode) {
+        print('Error updating student: $e');
+      }
       return false;
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -30,16 +31,30 @@ class AuthProvider with ChangeNotifier {
   // Fetch user role from database
   Future<void> _fetchUserRole() async {
     try {
+      if (kDebugMode) {
+        print('Fetching role for user ID: ${_user!.id}');
+      }
+      
       final response = await _supabase
           .from('users')
           .select('role')
           .eq('id', _user!.id)
           .single();
       
+      if (kDebugMode) {
+        print('Role response: $response');
+      }
       _userRole = response['role'];
+      if (kDebugMode) {
+        print('User role set to: $_userRole');
+      }
       notifyListeners();
     } catch (e) {
-      debugPrint('Error fetching user role: $e');
+      if (kDebugMode) {
+        print('Error fetching user role: $e');
+      }
+      _errorMessage = 'Failed to fetch user role';
+      notifyListeners();
     }
   }
 

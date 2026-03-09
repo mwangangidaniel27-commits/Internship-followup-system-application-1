@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 // Import providers
 import 'providers/auth_provider.dart';
+import 'providers/student_provider.dart';
 
 // Import screens
 import 'screens/auth/splash_screen.dart';
@@ -12,6 +13,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'screens/student/log_form_screen.dart';
 import 'screens/student/log_history_screen.dart';
+import 'screens/student/feedback_screen.dart';
+import 'screens/student/profile_screen.dart';
+import 'screens/student/document_upload_screen.dart';
 import 'screens/supervisor/supervisor_dashboard_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 
@@ -45,8 +49,8 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => StudentProvider()),
         // Add other providers here as you create them
-        // ChangeNotifierProvider(create: (_) => StudentProvider()),
         // ChangeNotifierProvider(create: (_) => SupervisorProvider()),
       ],
       child: MaterialApp(
@@ -153,6 +157,15 @@ class MyApp extends StatelessWidget {
             
             case AppRoutes.logHistory:
               return MaterialPageRoute(builder: (_) => const LogHistoryScreen());
+            
+            case AppRoutes.feedback:
+              return MaterialPageRoute(builder: (_) => const FeedbackScreen());
+            
+            case AppRoutes.profile:
+              return MaterialPageRoute(builder: (_) => const ProfileScreen());
+            
+            case AppRoutes.documentUpload:
+              return MaterialPageRoute(builder: (_) => const DocumentUploadScreen());
             
             default:
               return MaterialPageRoute(

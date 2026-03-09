@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../../providers/student_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../services/log_service.dart';
+import '../../models/week_log_model.dart';
 
 class LogHistoryScreen extends StatefulWidget {
   const LogHistoryScreen({super.key});
@@ -9,60 +14,101 @@ class LogHistoryScreen extends StatefulWidget {
 }
 
 class _LogHistoryScreenState extends State<LogHistoryScreen> {
+  final LogService _logService = LogService();
   String _filterStatus = 'all'; // all, pending, reviewed
+  List<WeeklyLogModel> _allLogs = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Sample data - will be replaced with real data from Supabase
-  final List<Map<String, dynamic>> allLogs = [
-    {
-      'id': 1,
-      'week': 8,
-      'date': '2026-01-15',
-      'status': 'pending',
-      'preview': 'Completed user authentication module and integrated Firebase...',
-      'submittedDate': 'Jan 15, 2026',
-    },
-    {
-      'id': 2,
-      'week': 7,
-      'date': '2026-01-08',
-      'status': 'reviewed',
-      'feedback': 'Good progress! Consider adding unit tests for the auth module.',
-      'preview': 'Worked on database schema design and API endpoints...',
-      'submittedDate': 'Jan 8, 2026',
-      'reviewedDate': 'Jan 10, 2026',
-    },
-    {
-      'id': 3,
-      'week': 6,
-      'date': '2026-01-01',
-      'status': 'reviewed',
-      'feedback': 'Excellent work on the UI components. Keep it up!',
-      'preview': 'Created reusable UI components using Flutter widgets...',
-      'submittedDate': 'Jan 1, 2026',
-      'reviewedDate': 'Jan 3, 2026',
-    },
-    {
-      'id': 4,
-      'week': 5,
-      'date': '2025-12-25',
-      'status': 'reviewed',
-      'feedback': 'Good start. Try to be more specific about learning outcomes.',
-      'preview': 'Started internship orientation and setup development environment...',
-      'submittedDate': 'Dec 25, 2025',
-      'reviewedDate': 'Dec 27, 2025',
-    },
-  ];
-
-  List<Map<String, dynamic>> get filteredLogs {
-    if (_filterStatus == 'all') return allLogs;
-    return allLogs.where((log) => log['status'] == _filterStatus).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
   }
 
-  int get pendingCount => allLogs.where((log) => log['status'] == 'pending').length;
-  int get reviewedCount => allLogs.where((log) => log['status'] == 'reviewed').length;
+  Future<void> _loadLogs() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final studentProvider = context.read<StudentProvider>();
+    
+    if (studentProvider.student == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Student profile not found';
+      });
+      return;
+    }
+
+    try {
+      final logs = await _logService.getStudentLogs(studentProvider.student!.id);
+      
+      if (mounted) {
+        setState(() {
+          _allLogs = logs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to load logs';
+        });
+      }
+    }
+  }
+
+  List<WeeklyLogModel> get filteredLogs {
+    if (_filterStatus == 'all') return _allLogs;
+    return _allLogs.where((log) => log.status == _filterStatus).toList();
+  }
+
+  int get pendingCount => _allLogs.where((log) => log.isPending).length;
+  int get reviewedCount => _allLogs.where((log) => log.isReviewed).length;
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF9FAFB),
+        appBar: AppBar(
+          title: const Text('Weekly Logs'),
+          backgroundColor: const Color(0xFF2563EB),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF9FAFB),
+        appBar: AppBar(
+          title: const Text('Weekly Logs'),
+          backgroundColor: const Color(0xFF2563EB),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_errorMessage!),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadLogs,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: CustomScrollView(
@@ -88,7 +134,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${allLogs.length} total entries',
+                      '${_allLogs.length} total entries',
                       style: const TextStyle(
                         color: Color(0xFFBFDBFE),
                         fontSize: 14,
@@ -96,7 +142,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                     ),
                     FloatingActionButton.small(
                       onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.logForm);
+                        Navigator.pushNamed(context, AppRoutes.logForm).then((_) => _loadLogs());
                       },
                       backgroundColor: Colors.white,
                       child: const Icon(Icons.add, color: Color(0xFF2563EB)),
@@ -116,7 +162,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                 children: [
                   Expanded(
                     child: _buildFilterChip(
-                      label: 'All (${allLogs.length})',
+                      label: 'All (${_allLogs.length})',
                       value: 'all',
                     ),
                   ),
@@ -308,8 +354,8 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
     );
   }
 
-  Widget _buildLogCard(Map<String, dynamic> log) {
-    final bool isReviewed = log['status'] == 'reviewed';
+  Widget _buildLogCard(WeeklyLogModel log) {
+    final bool isReviewed = log.isReviewed;
     
     return Card(
       elevation: 2,
@@ -345,7 +391,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Week ${log['week']}',
+                          'Week ${log.weekNumber}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -353,7 +399,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                           ),
                         ),
                         Text(
-                          log['date'],
+                          DateFormat('MMM d, yyyy').format(log.logDate),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF6B7280),
@@ -402,7 +448,9 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                log['preview'],
+                log.description.length > 100 
+                    ? '${log.description.substring(0, 100)}...' 
+                    : log.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -414,7 +462,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
             ),
 
             // Feedback Section
-            if (isReviewed && log['feedback'] != null)
+            if (isReviewed && log.hasFeedback)
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 padding: const EdgeInsets.all(12),
@@ -446,17 +494,17 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            log['feedback'],
+                            log.feedback!,
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF1E40AF),
                             ),
                           ),
-                          if (log['reviewedDate'] != null)
+                          if (log.reviewedAt != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                'Reviewed on ${log['reviewedDate']}',
+                                'Reviewed on ${DateFormat('MMM d, yyyy').format(log.reviewedAt!)}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF3B82F6),
@@ -477,7 +525,7 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Submitted ${log['submittedDate']}',
+                    'Submitted ${DateFormat('MMM d, yyyy').format(log.submittedAt)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF9CA3AF),

@@ -6,9 +6,11 @@ class AppRoutes {
   // Student routes
   static const String studentDashboard = '/student/dashboard';
   static const String studentProfile = '/student/profile';
+  static const String profile = '/student/profile';
   static const String logForm = '/student/log_form';
   static const String logHistory = '/student/log_history';
   static const String logDetail = '/student/log_detail';
+  static const String feedback = '/student/feedback';
   static const String documentUpload = '/student/document_upload';
   
   // Supervisor routes
