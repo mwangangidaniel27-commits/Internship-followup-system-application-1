@@ -18,27 +18,25 @@ import 'screens/student/profile_screen.dart';
 import 'screens/student/document_upload_screen.dart';
 import 'screens/supervisor/supervisor_dashboard_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/assign_supervisor_screen.dart'; // NEW
+import 'screens/student/edit_profile_screen.dart';
+import 'screens/student/student_report_screen.dart';
+import 'screens/reporting/reports_screen.dart';
 
 // Import routes
 import 'routes/app_routes.dart';
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load environment variables
   await dotenv.load(fileName: ".env");
-
-  // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
-
   runApp(const MyApp());
 }
 
-// Global access to Supabase client
 final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
@@ -50,28 +48,20 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => StudentProvider()),
-        // Add other providers here as you create them
-        // ChangeNotifierProvider(create: (_) => SupervisorProvider()),
       ],
       child: MaterialApp(
         title: 'Internship Follow-Up System',
         debugShowCheckedModeBanner: false,
-        
-        // Theme configuration
         theme: ThemeData(
           primarySwatch: Colors.blue,
-          primaryColor: const Color(0xFF2563EB), // Blue-600
-          scaffoldBackgroundColor: const Color(0xFFF9FAFB), // Gray-50
-          
-          // AppBar theme
+          primaryColor: const Color(0xFF2563EB),
+          scaffoldBackgroundColor: const Color(0xFFF9FAFB),
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF2563EB),
             foregroundColor: Colors.white,
             elevation: 0,
             centerTitle: false,
           ),
-          
-          // Input decoration theme
           inputDecorationTheme: InputDecorationTheme(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -83,10 +73,9 @@ class MyApp extends StatelessWidget {
             ),
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          
-          // Button theme
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
@@ -98,8 +87,6 @@ class MyApp extends StatelessWidget {
               elevation: 0,
             ),
           ),
-          
-          // Card theme
           cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
@@ -107,8 +94,6 @@ class MyApp extends StatelessWidget {
             ),
             color: Colors.white,
           ),
-          
-          // Text theme
           textTheme: const TextTheme(
             headlineLarge: TextStyle(
               fontSize: 24,
@@ -120,53 +105,61 @@ class MyApp extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Color(0xFF111827),
             ),
-            bodyLarge: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF374151),
-            ),
-            bodyMedium: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF6B7280),
-            ),
+            bodyLarge: TextStyle(fontSize: 16, color: Color(0xFF374151)),
+            bodyMedium: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
           ),
         ),
-        
-        // Initial route
         initialRoute: AppRoutes.splash,
-        
-        // Route generation
         onGenerateRoute: (settings) {
           switch (settings.name) {
             case AppRoutes.splash:
               return MaterialPageRoute(builder: (_) => const SplashScreen());
-            
             case AppRoutes.login:
               return MaterialPageRoute(builder: (_) => const LoginScreen());
-            
             case AppRoutes.studentDashboard:
-              return MaterialPageRoute(builder: (_) => const StudentDashboardScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const StudentDashboardScreen());
             case AppRoutes.supervisorDashboard:
-              return MaterialPageRoute(builder: (_) => const SupervisorDashboardScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const SupervisorDashboardScreen());
             case AppRoutes.adminDashboard:
-              return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const AdminDashboardScreen());
             case AppRoutes.logForm:
               return MaterialPageRoute(builder: (_) => const LogFormScreen());
-            
             case AppRoutes.logHistory:
-              return MaterialPageRoute(builder: (_) => const LogHistoryScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const LogHistoryScreen());
             case AppRoutes.feedback:
-              return MaterialPageRoute(builder: (_) => const FeedbackScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const FeedbackScreen());
             case AppRoutes.profile:
-              return MaterialPageRoute(builder: (_) => const ProfileScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const ProfileScreen());
             case AppRoutes.documentUpload:
-              return MaterialPageRoute(builder: (_) => const DocumentUploadScreen());
-            
+              return MaterialPageRoute(
+                  builder: (_) => const DocumentUploadScreen());
+            case AppRoutes.userManagement:
+              return MaterialPageRoute(
+                  builder: (_) => const UserManagementScreen());
+
+            case AppRoutes.reports:
+              return MaterialPageRoute(
+                  builder: (_) => const ReportsScreen());
+
+            case AppRoutes.studentReport:
+              return MaterialPageRoute(
+                  builder: (_) => const StudentReportScreen());
+
+            case AppRoutes.editProfile:
+              return MaterialPageRoute(
+                  builder: (_) => const EditProfileScreen());
+
+            // NEW — Assign Supervisor
+            case AppRoutes.assignSupervisor:
+              return MaterialPageRoute(
+                  builder: (_) => const AssignSupervisorScreen());
+
             default:
               return MaterialPageRoute(
                 builder: (_) => Scaffold(

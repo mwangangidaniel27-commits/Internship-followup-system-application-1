@@ -41,11 +41,30 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     }
 
     try {
-      // Get assigned students
+      // Get assigned students via supervisor_assignments table
+      final assignments = await _supabase
+          .from('supervisor_assignments')
+          .select('student_id')
+          .eq('supervisor_id', authProvider.user!.id);
+
+      final studentUserIds = (assignments as List)
+          .map((a) => a['student_id'] as String)
+          .toList();
+
+      if (studentUserIds.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _students = [];
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       final students = await _supabase
           .from('students')
           .select('*, users!students_user_id_fkey(full_name, email)')
-          .eq('supervisor_id', authProvider.user!.id);
+          .inFilter('user_id', studentUserIds);
 
       if (mounted) {
         setState(() {

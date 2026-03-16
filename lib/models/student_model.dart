@@ -52,8 +52,12 @@ class StudentModel {
       totalWeeks: json['total_weeks'] ?? 12,
       supervisorId: json['supervisor_id'],
       status: json['status'] ?? 'active',
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : DateTime.now(),
       fullName: json['full_name'],
       supervisorName: json['supervisor_name'],
     );

@@ -23,21 +23,27 @@ class LogService {
   // Get all logs for a student
   Future<List<WeeklyLogModel>> getStudentLogs(String studentId) async {
     try {
+      if (kDebugMode) print('Fetching logs for student_id: $studentId');
+
       final response = await _supabase
           .from('weekly_logs')
           .select('*')
           .eq('student_id', studentId)
           .order('week_number', ascending: false);
 
+      if (kDebugMode) print('Logs response count: ${(response as List).length}');
+
       List<WeeklyLogModel> logs = [];
       
       for (var log in response as List) {
         // Get feedback for this log separately
-        final feedbackResponse = await _supabase
+        final feedbackList = await _supabase
             .from('feedback')
             .select('comment, supervisor:users!feedback_supervisor_id_fkey(full_name)')
             .eq('log_id', log['id'])
-            .maybeSingle();
+            .order('created_at', ascending: false)
+            .limit(1);
+        final feedbackResponse = (feedbackList as List).isNotEmpty ? feedbackList.first : null;
 
         final flattenedLog = <String, dynamic>{
           ...Map<String, dynamic>.from(log),
@@ -45,9 +51,14 @@ class LogService {
           'supervisor_name': feedbackResponse?['supervisor']?['full_name'],
         };
         
-        logs.add(WeeklyLogModel.fromJson(flattenedLog));
+        try {
+          logs.add(WeeklyLogModel.fromJson(flattenedLog));
+        } catch (parseError) {
+          if (kDebugMode) print('Error parsing log: $parseError | data: $flattenedLog');
+        }
       }
 
+      if (kDebugMode) print('Successfully parsed ${logs.length} logs');
       return logs;
     } catch (e) {
       if (kDebugMode) {
@@ -71,11 +82,13 @@ class LogService {
       
       for (var log in response as List) {
         // Get feedback for this log separately
-        final feedbackResponse = await _supabase
+        final feedbackList = await _supabase
             .from('feedback')
             .select('comment')
             .eq('log_id', log['id'])
-            .maybeSingle();
+            .order('created_at', ascending: false)
+            .limit(1);
+        final feedbackResponse = (feedbackList as List).isNotEmpty ? feedbackList.first : null;
 
         final flattenedLog = <String, dynamic>{
           ...Map<String, dynamic>.from(log),
@@ -104,11 +117,13 @@ class LogService {
           .single();
 
       // Get feedback separately
-      final feedbackResponse = await _supabase
+      final feedbackList = await _supabase
           .from('feedback')
           .select('comment, supervisor:users!feedback_supervisor_id_fkey(full_name)')
           .eq('log_id', logId)
-          .maybeSingle();
+          .order('created_at', ascending: false)
+          .limit(1);
+      final feedbackResponse = (feedbackList as List).isNotEmpty ? feedbackList.first : null;
 
       final flattenedLog = <String, dynamic>{
         ...Map<String, dynamic>.from(response),

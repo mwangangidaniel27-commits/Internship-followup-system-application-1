@@ -203,26 +203,43 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pushNamed(context, AppRoutes.logForm),
-                          icon: const Icon(Icons.edit_note),
-                          label: const Text('Add Log'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.logForm),
+                              icon: const Icon(Icons.edit_note),
+                              label: const Text('Add Log'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.all(16),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.documentUpload),
+                              icon: const Icon(Icons.upload_file),
+                              label: const Text('Upload Doc'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                padding: const EdgeInsets.all(16),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pushNamed(context, AppRoutes.documentUpload),
-                          icon: const Icon(Icons.upload_file),
-                          label: const Text('Upload Doc'),
+                          onPressed: () => Navigator.pushNamed(context, AppRoutes.studentReport),
+                          icon: const Icon(Icons.picture_as_pdf),
+                          label: const Text('Download My Report'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: const Color(0xFF8B5CF6),
                             padding: const EdgeInsets.all(16),
                           ),
                         ),

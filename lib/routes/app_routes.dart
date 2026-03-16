@@ -21,6 +21,9 @@ class AppRoutes {
   static const String feedbackForm = '/supervisor/feedback';
   static const String evaluationUpload = '/supervisor/evaluation_upload';
   
+  // Student edit profile
+  static const String editProfile = '/student/edit_profile';
+
   // Admin routes
   static const String adminDashboard = '/admin/dashboard';
   static const String userManagement = '/admin/users';
@@ -32,4 +35,5 @@ class AppRoutes {
   static const String assessmentStatus = '/reporting/assessment_status';
   static const String activeInternships = '/reporting/active_internships';
   static const String logCompliance = '/reporting/log_compliance';
+  static const String studentReport = '/student/report';
 }

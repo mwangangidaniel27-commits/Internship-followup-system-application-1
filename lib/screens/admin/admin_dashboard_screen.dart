@@ -16,7 +16,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _totalStudents = 0;
   int _totalSupervisors = 0;
   int _activeInternships = 0;
-  int _pendingLogs = 0;
   bool _isLoading = true;
 
   @override
@@ -31,31 +30,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       // Get total students
       final students = await _supabase
-          .from('students')
-          .select('id, status')
+          .from('users')
+          .select('id')
+          .eq('role', 'student')
           .count(CountOption.exact);
-      
+
       _totalStudents = students.count;
-      _activeInternships = (students.data as List)
-          .where((s) => s['status'] == 'active')
-          .length;
+
+      // Get active internships
+      final active = await _supabase
+          .from('users')
+          .select('id')
+          .eq('role', 'student')
+          .eq('is_active', true)
+          .count(CountOption.exact);
+
+      _activeInternships = active.count;
 
       // Get total supervisors
       final supervisors = await _supabase
-          .from('supervisors')
+          .from('users')
           .select('id')
+          .eq('role', 'supervisor')
           .count(CountOption.exact);
-      
-      _totalSupervisors = supervisors.count;
 
-      // Get pending logs
-      final logs = await _supabase
-          .from('weekly_logs')
-          .select('id')
-          .eq('status', 'pending')
-          .count(CountOption.exact);
-      
-      _pendingLogs = logs.count;
+      _totalSupervisors = supervisors.count;
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -153,28 +152,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           const Color(0xFF8B5CF6),
                         ),
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
+                      const SizedBox(width: 12),
                       Expanded(
                         child: _buildStatCard(
                           'Active Internships',
                           _activeInternships.toString(),
                           Icons.business_center,
                           const Color(0xFF10B981),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Pending Reviews',
-                          _pendingLogs.toString(),
-                          Icons.pending_actions,
-                          const Color(0xFFF59E0B),
                         ),
                       ),
                     ],
@@ -205,7 +189,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.link,
                     const Color(0xFF8B5CF6),
                     () {
-                      Navigator.pushNamed(context, '/admin/assign');
+                      Navigator.pushNamed(context, '/admin/assign_supervisor');
                     },
                   ),
 
@@ -215,10 +199,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.analytics,
                     const Color(0xFF10B981),
                     () {
-                      // TODO: Reports screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Reports feature coming soon')),
-                      );
+                      Navigator.pushNamed(context, '/admin/reports');
                     },
                   ),
                 ],

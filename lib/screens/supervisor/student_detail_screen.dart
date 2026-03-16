@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> student;
@@ -16,11 +17,14 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _logs = [];
   bool _isLoading = true;
+  List<Map<String, dynamic>> _evaluations = [];
+  bool _isUploading = false;
 
   @override
   void initState() {
     super.initState();
     _loadLogs();
+    _loadEvaluations();
   }
 
   Future<void> _loadLogs() async {
@@ -120,6 +124,123 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
     }
   }
 
+  Future<void> _loadEvaluations() async {
+    try {
+      final evals = await _supabase
+          .from('evaluations')
+          .select('*')
+          .eq('student_id', widget.student['id'])
+          .order('created_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _evaluations = List<Map<String, dynamic>>.from(evals);
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error loading evaluations: $e');
+    }
+  }
+
+  Future<void> _uploadEvaluation() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes == null) return;
+
+      setState(() => _isUploading = true);
+
+      final fileName =
+          '${widget.student["id"]}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final filePath = 'evaluations/$fileName';
+
+      // Upload to Supabase Storage
+      await _supabase.storage.from('internship-documents').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'application/pdf'),
+          );
+
+      // Get public URL
+      final fileUrl =
+          _supabase.storage.from('internship-documents').getPublicUrl(filePath);
+
+      // Save record to evaluations table
+      await _supabase.from('evaluations').insert({
+        'student_id': widget.student['id'],
+        'supervisor_id': _supabase.auth.currentUser!.id,
+        'file_url': fileUrl,
+        'file_name': file.name,
+        'notes': null,
+      });
+
+      await _loadEvaluations();
+
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Evaluation uploaded successfully'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) print('Upload error: \$e');
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddNoteDialog(Map<String, dynamic> eval) {
+    final noteCtrl = TextEditingController(text: eval['notes'] ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Note'),
+        content: TextField(
+          controller: noteCtrl,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Enter notes for this evaluation...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _supabase
+                  .from('evaluations')
+                  .update({'notes': noteCtrl.text.trim()})
+                  .eq('id', eval['id']);
+              _loadEvaluations();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userData = widget.student['users'];
@@ -130,6 +251,23 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       appBar: AppBar(
         title: Text(fullName),
         backgroundColor: const Color(0xFF2563EB),
+        actions: [
+          _isUploading
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.upload_file),
+                  tooltip: 'Upload Evaluation',
+                  onPressed: _uploadEvaluation,
+                ),
+        ],
       ),
       body: Column(
         children: [
@@ -154,6 +292,88 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           ),
 
           const SizedBox(height: 8),
+
+          // Evaluations Section
+          if (_evaluations.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Evaluations',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '${_evaluations.length} uploaded',
+                    style: const TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _evaluations.length,
+                itemBuilder: (context, index) {
+                  final eval = _evaluations[index];
+                  return Container(
+                    width: 200,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf,
+                                color: Colors.red, size: 18),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                eval['file_name'] ?? 'Evaluation',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          eval['notes'] ?? 'No notes',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF6B7280)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => _showAddNoteDialog(eval),
+                              child: const Text('Add note',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF2563EB))),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // Logs Header
           Padding(

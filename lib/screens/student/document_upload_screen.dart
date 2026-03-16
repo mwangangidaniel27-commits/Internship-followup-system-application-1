@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../providers/student_provider.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 
 class DocumentUploadScreen extends StatefulWidget {
   const DocumentUploadScreen({super.key});
@@ -82,6 +83,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
+        withData: true,
       );
 
       if (result == null) return;
@@ -104,11 +106,15 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
       final fileName = '${studentProvider.student!.userId}/$timestamp-${file.name}';
 
       // Upload to Supabase Storage
-      final bytes = kIsWeb ? file.bytes! : await File(file.path!).readAsBytes();
-      
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+
       await _supabase.storage
           .from('internship-documents')
-          .uploadBinary(fileName, bytes);
+          .uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'application/pdf'),
+          );
 
       // Save metadata to database
       await _supabase.from('documents').insert({
@@ -118,6 +124,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         'file_path': fileName,
         'file_size': file.size,
         'uploaded_by': studentProvider.student!.userId,
+        'uploaded_at': DateTime.now().toIso8601String(),
       });
 
       if (mounted) {
@@ -161,6 +168,23 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _downloadDocument(Map<String, dynamic> doc) async {
+    try {
+      final fileUrl = _supabase.storage
+          .from('internship-documents')
+          .getPublicUrl(doc['file_path']);
+
+      final uri = Uri.parse(fileUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showError('Could not open document');
+      }
+    } catch (e) {
+      _showError('Failed to download document');
+    }
   }
 
   @override
@@ -306,20 +330,13 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                                       ),
                                     ],
                                   ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFD1FAE5),
-                                      borderRadius: BorderRadius.circular(12),
+                                  trailing: IconButton(
+                                    icon: const Icon(
+                                      Icons.download,
+                                      color: Color(0xFF2563EB),
                                     ),
-                                    child: const Text(
-                                      'Uploaded',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF059669),
-                                      ),
-                                    ),
+                                    tooltip: 'Download',
+                                    onPressed: () => _downloadDocument(doc),
                                   ),
                                 ),
                               );

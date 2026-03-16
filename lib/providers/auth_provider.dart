@@ -23,12 +23,14 @@ class AuthProvider with ChangeNotifier {
       _user = data.session?.user;
       if (_user != null) {
         _fetchUserRole();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifyListeners();
+        });
       }
-      notifyListeners();
     });
   }
 
-  // Fetch user role from database
   Future<void> _fetchUserRole() async {
     try {
       if (kDebugMode) {
@@ -48,13 +50,17 @@ class AuthProvider with ChangeNotifier {
       if (kDebugMode) {
         print('User role set to: $_userRole');
       }
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching user role: $e');
       }
       _errorMessage = 'Failed to fetch user role';
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 

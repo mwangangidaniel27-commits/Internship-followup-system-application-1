@@ -28,7 +28,11 @@ class StudentProvider with ChangeNotifier {
       _student = await _studentService.getStudentByUserId(userId);
       
       if (_student != null) {
+        debugPrint('Loading recent logs for student id: ${_student!.id}');
         _recentLogs = await _logService.getRecentLogs(_student!.id);
+        debugPrint('Recent logs loaded: ${_recentLogs.length}');
+      } else {
+        debugPrint('Student is null, skipping log load');
       }
       
       _isLoading = false;

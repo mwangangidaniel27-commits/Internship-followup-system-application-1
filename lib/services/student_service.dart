@@ -29,13 +29,30 @@ class StudentService {
           .eq('id', userId)
           .maybeSingle();
 
-      // Get supervisor name if supervisor_id exists
+      // Get supervisor from supervisor_assignments table
       String? supervisorName;
-      if (studentResponse['supervisor_id'] != null) {
+      String? supervisorId;
+      final assignmentResponse = await _supabase
+          .from('supervisor_assignments')
+          .select('supervisor_id')
+          .eq('student_id', studentResponse['user_id'])
+          .maybeSingle();
+
+      if (assignmentResponse != null) {
+        supervisorId = assignmentResponse['supervisor_id'];
         final supervisorResponse = await _supabase
             .from('users')
             .select('full_name')
-            .eq('id', studentResponse['supervisor_id'])
+            .eq('id', supervisorId!)
+            .maybeSingle();
+        supervisorName = supervisorResponse?['full_name'];
+      } else if (studentResponse['supervisor_id'] != null) {
+        // Fallback to students.supervisor_id if set directly
+        supervisorId = studentResponse['supervisor_id'];
+        final supervisorResponse = await _supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', supervisorId!)
             .maybeSingle();
         supervisorName = supervisorResponse?['full_name'];
       }
@@ -45,6 +62,7 @@ class StudentService {
         ...Map<String, dynamic>.from(studentResponse),
         'full_name': userResponse?['full_name'],
         'supervisor_name': supervisorName,
+        if (supervisorId != null) 'supervisor_id': supervisorId,
       };
 
       return StudentModel.fromJson(flattenedData);
