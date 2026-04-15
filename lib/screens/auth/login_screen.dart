@@ -212,6 +212,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   
+                  const SizedBox(height: 16),
+
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, AppRoutes.selfRegister);
+                    },
+                    icon: const Icon(Icons.business),
+                    label: const Text('Create account (pending approval)'),
+                  ),
+
                   const SizedBox(height: 24),
                   
                   // Help Text

@@ -6,8 +6,13 @@ import 'package:file_picker/file_picker.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> student;
+  final String supervisorType;
 
-  const StudentDetailScreen({super.key, required this.student});
+  const StudentDetailScreen({
+    super.key,
+    required this.student,
+    this.supervisorType = 'university',
+  });
 
   @override
   State<StudentDetailScreen> createState() => _StudentDetailScreenState();
@@ -81,6 +86,19 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       ),
     );
 
+    final companyStatus = log['company_verification_status'] ?? 'pending';
+    if (widget.supervisorType == 'university' && companyStatus != 'verified') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This log must be verified by the company supervisor first.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     if (result == true && controller.text.trim().isNotEmpty) {
       try {
         // Add feedback
@@ -120,6 +138,39 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
             ),
           );
         }
+      }
+    }
+  }
+
+
+
+  Future<void> _verifyCompanyLog(Map<String, dynamic> log) async {
+    try {
+      await _supabase.from('weekly_logs').update({
+        'company_verification_status': 'verified',
+        'company_verified_by': _supabase.auth.currentUser!.id,
+        'company_verified_at': DateTime.now().toIso8601String(),
+      }).eq('id', log['id']);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Log verified and forwarded to university supervisor'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+
+      _loadLogs();
+    } catch (e) {
+      if (kDebugMode) print('Error verifying log: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to verify log'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -408,6 +459,9 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                             final log = _logs[index];
                             final feedback = log['feedback'] as List?;
                             final hasFeedback = feedback != null && feedback.isNotEmpty;
+                            final companyStatus = log['company_verification_status'] ?? 'pending';
+                            final isCompanySupervisor = widget.supervisorType == 'company';
+                            final canUniversityReview = companyStatus == 'verified';
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -436,17 +490,25 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                   decoration: BoxDecoration(
                                     color: log['status'] == 'reviewed'
                                         ? const Color(0xFFD1FAE5)
-                                        : const Color(0xFFFEF3C7),
+                                        : companyStatus == 'verified'
+                                            ? const Color(0xFFE0E7FF)
+                                            : const Color(0xFFFEF3C7),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    log['status'] == 'reviewed' ? 'Reviewed' : 'Pending',
+                                    log['status'] == 'reviewed'
+                                        ? 'Reviewed'
+                                        : companyStatus == 'verified'
+                                            ? 'Company Verified'
+                                            : 'Pending',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: log['status'] == 'reviewed'
                                           ? const Color(0xFF059669)
-                                          : const Color(0xFFD97706),
+                                          : companyStatus == 'verified'
+                                              ? const Color(0xFF4338CA)
+                                              : const Color(0xFFD97706),
                                     ),
                                   ),
                                 ),
@@ -504,17 +566,69 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                         ],
 
                                         const SizedBox(height: 16),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () => _addFeedback(log),
-                                            icon: const Icon(Icons.add_comment),
-                                            label: Text(hasFeedback ? 'Update Feedback' : 'Add Feedback'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF2563EB),
+                                        if (isCompanySupervisor && companyStatus != 'verified')
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () => _verifyCompanyLog(log),
+                                              icon: const Icon(Icons.verified),
+                                              label: const Text('Verify Log Submission'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF10B981),
+                                              ),
                                             ),
-                                          ),
-                                        ),
+                                          )
+                                        else if (isCompanySupervisor && companyStatus == 'verified')
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12, horizontal: 14),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(8),
+                                              color: const Color(0xFFD1FAE5),
+                                            ),
+                                            child: const Text(
+                                              'Already verified by company supervisor',
+                                              style: TextStyle(
+                                                color: Color(0xFF065F46),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          )
+                                        else ...[
+                                          if (!canUniversityReview)
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.symmetric(
+                                                  vertical: 12, horizontal: 14),
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(8),
+                                                color: const Color(0xFFFFEDD5),
+                                              ),
+                                              child: const Text(
+                                                'Waiting for company supervisor verification',
+                                                style: TextStyle(
+                                                  color: Color(0xFF9A3412),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton.icon(
+                                                onPressed: () => _addFeedback(log),
+                                                icon: const Icon(Icons.add_comment),
+                                                label: Text(hasFeedback
+                                                    ? 'Update Feedback'
+                                                    : 'Add Feedback'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF2563EB),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ],
                                     ),
                                   ),

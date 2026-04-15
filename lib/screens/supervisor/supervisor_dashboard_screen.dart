@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+
 import '../../providers/auth_provider.dart';
 import 'student_detail_screen.dart';
 
@@ -9,7 +10,8 @@ class SupervisorDashboardScreen extends StatefulWidget {
   const SupervisorDashboardScreen({super.key});
 
   @override
-  State<SupervisorDashboardScreen> createState() => _SupervisorDashboardScreenState();
+  State<SupervisorDashboardScreen> createState() =>
+      _SupervisorDashboardScreenState();
 }
 
 class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
@@ -17,6 +19,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
   List<Map<String, dynamic>> _students = [];
   bool _isLoading = true;
   String? _errorMessage;
+  String _supervisorType = 'university';
 
   @override
   void initState() {
@@ -31,7 +34,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     });
 
     final authProvider = context.read<AuthProvider>();
-    
+
     if (authProvider.user == null) {
       setState(() {
         _isLoading = false;
@@ -41,19 +44,27 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     }
 
     try {
-      // Get assigned students via supervisor_assignments table
+      final supervisor = await _supabase
+          .from('supervisors')
+          .select('supervisor_type')
+          .eq('user_id', authProvider.user!.id)
+          .maybeSingle();
+
+      final supervisorType = supervisor?['supervisor_type'] ?? 'university';
+
       final assignments = await _supabase
           .from('supervisor_assignments')
           .select('student_id')
-          .eq('supervisor_id', authProvider.user!.id);
+          .eq('supervisor_id', authProvider.user!.id)
+          .eq('assignment_type', supervisorType);
 
-      final studentUserIds = (assignments as List)
-          .map((a) => a['student_id'] as String)
-          .toList();
+      final studentUserIds =
+          (assignments as List).map((a) => a['student_id'] as String).toList();
 
       if (studentUserIds.isEmpty) {
         if (mounted) {
           setState(() {
+            _supervisorType = supervisorType;
             _students = [];
             _isLoading = false;
           });
@@ -68,6 +79,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
 
       if (mounted) {
         setState(() {
+          _supervisorType = supervisorType;
           _students = List<Map<String, dynamic>>.from(students);
           _isLoading = false;
         });
@@ -87,10 +99,16 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompanySupervisor = _supervisorType == 'company';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('Supervisor Dashboard'),
+        title: Text(
+          isCompanySupervisor
+              ? 'Company Supervisor Dashboard'
+              : 'University Supervisor Dashboard',
+        ),
         backgroundColor: const Color(0xFF2563EB),
         actions: [
           IconButton(
@@ -128,11 +146,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+                              Icon(Icons.people_outline,
+                                  size: 64, color: Colors.grey[300]),
                               const SizedBox(height: 16),
                               Text(
                                 'No students assigned',
-                                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                                style: TextStyle(
+                                    fontSize: 18, color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -140,7 +160,6 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                       : ListView(
                           padding: const EdgeInsets.all(16),
                           children: [
-                            // Stats Cards
                             Row(
                               children: [
                                 Expanded(
@@ -155,25 +174,27 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                                 Expanded(
                                   child: _buildStatCard(
                                     'Active',
-                                    _students.where((s) => s['status'] == 'active').length.toString(),
+                                    _students
+                                        .where((s) => s['status'] == 'active')
+                                        .length
+                                        .toString(),
                                     Icons.check_circle,
                                     const Color(0xFF10B981),
                                   ),
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 24),
-
-                            const Text(
-                              'Assigned Students',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            Text(
+                              isCompanySupervisor
+                                  ? 'Students Waiting for Company Verification'
+                                  : 'Students for University Review',
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
                             ),
-
                             const SizedBox(height: 12),
-
-                            // Students List
-                            ..._students.map((student) => _buildStudentCard(student)),
+                            ..._students
+                                .map((student) => _buildStudentCard(student)),
                           ],
                         ),
                 ),
@@ -213,7 +234,8 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
           backgroundColor: const Color(0xFF2563EB),
           child: Text(
             fullName[0].toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         title: Text(
@@ -232,7 +254,10 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => StudentDetailScreen(student: student),
+              builder: (context) => StudentDetailScreen(
+                student: student,
+                supervisorType: _supervisorType,
+              ),
             ),
           );
         },

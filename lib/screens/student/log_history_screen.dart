@@ -356,7 +356,26 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
 
   Widget _buildLogCard(WeeklyLogModel log) {
     final bool isReviewed = log.isReviewed;
-    
+    final bool companyVerified = log.isCompanyVerified;
+
+    final String statusLabel = isReviewed
+        ? 'Reviewed'
+        : companyVerified
+            ? 'Awaiting University'
+            : 'Awaiting Company';
+
+    final Color statusBg = isReviewed
+        ? const Color(0xFFD1FAE5)
+        : companyVerified
+            ? const Color(0xFFE0E7FF)
+            : const Color(0xFFFEF3C7);
+
+    final Color statusColor = isReviewed
+        ? const Color(0xFF059669)
+        : companyVerified
+            ? const Color(0xFF4338CA)
+            : const Color(0xFFD97706);
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -411,30 +430,24 @@ class _LogHistoryScreenState extends State<LogHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isReviewed 
-                          ? const Color(0xFFD1FAE5) 
-                          : const Color(0xFFFEF3C7),
+                      color: statusBg,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isReviewed ? Icons.check_circle : Icons.schedule,
+                          isReviewed ? Icons.check_circle : (companyVerified ? Icons.verified_user : Icons.schedule),
                           size: 14,
-                          color: isReviewed 
-                              ? const Color(0xFF059669) 
-                              : const Color(0xFFD97706),
+                          color: statusColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isReviewed ? 'Reviewed' : 'Pending',
+                          statusLabel,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: isReviewed 
-                                ? const Color(0xFF059669) 
-                                : const Color(0xFFD97706),
+                            color: statusColor,
                           ),
                         ),
                       ],
