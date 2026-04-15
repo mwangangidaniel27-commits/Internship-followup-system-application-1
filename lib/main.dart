@@ -10,6 +10,7 @@ import 'providers/student_provider.dart';
 // Import screens
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/self_register_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'screens/student/log_form_screen.dart';
 import 'screens/student/log_history_screen.dart';
@@ -116,6 +117,8 @@ class MyApp extends StatelessWidget {
               return MaterialPageRoute(builder: (_) => const SplashScreen());
             case AppRoutes.login:
               return MaterialPageRoute(builder: (_) => const LoginScreen());
+            case AppRoutes.selfRegister:
+              return MaterialPageRoute(builder: (_) => const SelfRegisterScreen());
             case AppRoutes.studentDashboard:
               return MaterialPageRoute(
                   builder: (_) => const StudentDashboardScreen());

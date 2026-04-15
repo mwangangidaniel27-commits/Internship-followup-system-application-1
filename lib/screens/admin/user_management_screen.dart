@@ -77,6 +77,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final titleCtrl = TextEditingController();
     final studentIdCtrl = TextEditingController();
     String selectedRole = 'student';
+    String supervisorType = 'university';
     bool isSubmitting = false;
 
     showDialog(
@@ -146,6 +147,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             (v == null || v.isEmpty) ? 'Required' : null,
                       ),
                     ],
+                    // Supervisor type — only for supervisors
+                    if (selectedRole == 'supervisor') ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: supervisorType,
+                        decoration: const InputDecoration(labelText: 'Supervisor Type'),
+                        items: const [
+                          DropdownMenuItem(value: 'university', child: Text('University')),
+                          DropdownMenuItem(value: 'company', child: Text('Company')),
+                        ],
+                        onChanged: (v) => setDialogState(() => supervisorType = v ?? 'university'),
+                      ),
+                    ],
                     // Title — only for supervisors
                     if (selectedRole == 'supervisor') ...[
                       const SizedBox(height: 12),
@@ -179,6 +193,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         department: departmentCtrl.text.trim(),
                         title: titleCtrl.text.trim(),
                         studentId: studentIdCtrl.text.trim(),
+                        supervisorType: supervisorType,
                         ctx: ctx,
                       );
                       setDialogState(() => isSubmitting = false);
@@ -207,6 +222,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     String department = '',
     String title = '',
     String studentId = '',
+    String supervisorType = 'university',
   }) async {
     try {
       final response = await _supabase.functions.invoke(
@@ -219,6 +235,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           if (department.isNotEmpty) 'department': department,
           if (title.isNotEmpty) 'title': title,
           if (studentId.isNotEmpty) 'student_id': studentId,
+          if (role == 'supervisor') 'supervisor_type': supervisorType,
         },
       );
 
@@ -384,7 +401,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 Navigator.pop(context);
                 await _supabase
                     .from('users')
-                    .update({'is_active': !isActive}).eq('id', user['id']);
+                    .update({
+                      'is_active': !isActive,
+                      'approval_status': !isActive ? 'approved' : (user['approval_status'] ?? 'approved'),
+                    }).eq('id', user['id']);
                 _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -907,6 +927,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
 
     final isActive = user['is_active'] ?? true;
+    final approvalStatus = user['approval_status'] ?? 'approved';
+    final isPendingApproval = approvalStatus == 'pending';
     final name = user['full_name'] ?? '?';
 
     return Card(
@@ -968,6 +990,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                 ),
               ),
+            if (isPendingApproval) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'PENDING',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         subtitle: Column(

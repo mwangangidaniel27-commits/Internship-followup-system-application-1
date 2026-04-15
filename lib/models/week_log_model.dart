@@ -9,6 +9,9 @@ class WeeklyLogModel {
   final DateTime? reviewedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String companyVerificationStatus;
+  final String? companyVerifiedBy;
+  final DateTime? companyVerifiedAt;
 
   // From joined feedback table
   final String? feedback;
@@ -25,6 +28,9 @@ class WeeklyLogModel {
     this.reviewedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.companyVerificationStatus = 'pending',
+    this.companyVerifiedBy,
+    this.companyVerifiedAt,
     this.feedback,
     this.supervisorName,
   });
@@ -43,6 +49,11 @@ class WeeklyLogModel {
           : null,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
+      companyVerificationStatus: json['company_verification_status'] ?? 'pending',
+      companyVerifiedBy: json['company_verified_by'],
+      companyVerifiedAt: json['company_verified_at'] != null
+          ? DateTime.parse(json['company_verified_at'])
+          : null,
       feedback: json['feedback'],
       supervisorName: json['supervisor_name'],
     );
@@ -52,7 +63,7 @@ class WeeklyLogModel {
     return {
       'student_id': studentId,
       'week_number': weekNumber,
-      'log_date': logDate.toIso8601String().split('T')[0], // Date only
+      'log_date': logDate.toIso8601String().split('T')[0],
       'description': description,
       'status': status,
     };
@@ -60,5 +71,6 @@ class WeeklyLogModel {
 
   bool get isReviewed => status == 'reviewed';
   bool get isPending => status == 'pending';
+  bool get isCompanyVerified => companyVerificationStatus == 'verified';
   bool get hasFeedback => feedback != null && feedback!.isNotEmpty;
 }

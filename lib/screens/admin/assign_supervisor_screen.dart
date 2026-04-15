@@ -51,7 +51,7 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
       // Load supervisors
       final supervisors = await _supabase
           .from('users')
-          .select('id, full_name, email')
+          .select('id, full_name, email, supervisors!supervisors_user_id_fkey(supervisor_type, company_name)')
           .eq('role', 'supervisor')
           .eq('is_active', true)
           .order('full_name');
@@ -59,7 +59,7 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
       // Load existing assignments
       final assignments = await _supabase
           .from('supervisor_assignments')
-          .select('id, student_id, supervisor_id, assigned_at');
+          .select('id, student_id, supervisor_id, assignment_type, assigned_at');
 
       if (mounted) {
         setState(() {
@@ -76,9 +76,9 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
   }
 
   // Get supervisor assigned to a student (if any)
-  Map<String, dynamic>? _getAssignedSupervisor(String studentId) {
+  Map<String, dynamic>? _getAssignedSupervisor(String studentId, String assignmentType) {
     final assignment = _assignments.where(
-      (a) => a['student_id'] == studentId,
+      (a) => a['student_id'] == studentId && (a['assignment_type'] ?? 'university') == assignmentType,
     ).toList();
     if (assignment.isEmpty) return null;
     final supId = assignment.first['supervisor_id'];
@@ -100,11 +100,11 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
 
   // Assign or reassign supervisor to student
   Future<void> _assignSupervisor(
-      String studentId, String supervisorId) async {
+      String studentId, String supervisorId, String assignmentType) async {
     try {
       // Check if assignment exists
       final existing = _assignments
-          .where((a) => a['student_id'] == studentId)
+          .where((a) => a['student_id'] == studentId && (a['assignment_type'] ?? 'university') == assignmentType)
           .toList();
 
       if (existing.isNotEmpty) {
@@ -115,12 +115,13 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
               'supervisor_id': supervisorId,
               'assigned_at': DateTime.now().toIso8601String(),
             })
-            .eq('student_id', studentId);
+            .eq('student_id', studentId).eq('assignment_type', assignmentType);
       } else {
         // Insert new
         await _supabase.from('supervisor_assignments').insert({
           'student_id': studentId,
           'supervisor_id': supervisorId,
+          'assignment_type': assignmentType,
           'assigned_at': DateTime.now().toIso8601String(),
         });
       }
@@ -148,12 +149,12 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
   }
 
   // Remove assignment
-  Future<void> _removeAssignment(String studentId) async {
+  Future<void> _removeAssignment(String studentId, String assignmentType) async {
     try {
       await _supabase
           .from('supervisor_assignments')
           .delete()
-          .eq('student_id', studentId);
+          .eq('student_id', studentId).eq('assignment_type', assignmentType);
 
       await _loadData();
 
@@ -172,7 +173,8 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
   }
 
   void _showAssignDialog(Map<String, dynamic> student) {
-    final currentSupervisor = _getAssignedSupervisor(student['id']);
+    String selectedAssignmentType = 'university';
+    var currentSupervisor = _getAssignedSupervisor(student['id'], selectedAssignmentType);
     String? selectedSupervisorId = currentSupervisor?['id'];
 
     showDialog(
@@ -220,6 +222,28 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedAssignmentType,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'university', child: Text('University Supervisor')),
+                  DropdownMenuItem(value: 'company', child: Text('Company Supervisor')),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setDialogState(() {
+                    selectedAssignmentType = v;
+                    currentSupervisor = _getAssignedSupervisor(student['id'], selectedAssignmentType);
+                    selectedSupervisorId = currentSupervisor?['id'];
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
               if (_supervisors.isEmpty)
                 const Text('No supervisors available.',
                     style: TextStyle(color: Colors.grey))
@@ -234,6 +258,9 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
                     isDense: true,
                   ),
                   items: _supervisors
+                      .where((s) =>
+                          (s['supervisors']?['supervisor_type'] ?? 'university') ==
+                          selectedAssignmentType)
                       .map((s) => DropdownMenuItem<String>(
                             value: s['id'],
                             child: Text(s['full_name']),
@@ -249,7 +276,9 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
               TextButton(
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  await _removeAssignment(student['id']);
+                  final assignmentType =
+                  supervisor['supervisors']?['supervisor_type'] ?? 'university';
+              await _removeAssignment(student['id'], assignmentType);
                 },
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('Remove'),
@@ -264,7 +293,7 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
                   : () async {
                       Navigator.pop(ctx);
                       await _assignSupervisor(
-                          student['id'], selectedSupervisorId!);
+                          student['id'], selectedSupervisorId!, selectedAssignmentType);
                     },
               child: const Text('Assign'),
             ),
@@ -426,8 +455,12 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
         itemCount: students.length,
         itemBuilder: (context, index) {
           final student = students[index];
-          final supervisor = _getAssignedSupervisor(student['id']);
-          final isAssigned = supervisor != null;
+          final assignedUniversity =
+              _getAssignedSupervisor(student['id'], 'university');
+          final assignedCompany =
+              _getAssignedSupervisor(student['id'], 'company');
+          final isAssigned =
+              assignedUniversity != null || assignedCompany != null;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -454,36 +487,28 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
                     style: const TextStyle(fontSize: 12),
                   ),
                   const SizedBox(height: 4),
-                  isAssigned
-                      ? Row(
-                          children: [
-                            const Icon(Icons.check_circle,
-                                size: 13, color: Color(0xFF10B981)),
-                            const SizedBox(width: 4),
-                            Text(
-                              supervisor['full_name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF10B981),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded,
-                                size: 13, color: Colors.orange[700]),
-                            const SizedBox(width: 4),
-                            Text(
-                              'No supervisor assigned',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange[700],
-                              ),
-                            ),
-                          ],
-                        ),
+                  Text(
+                    assignedUniversity == null
+                        ? 'University: Not assigned'
+                        : 'University: ${assignedUniversity['full_name']}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: assignedUniversity == null
+                          ? Colors.orange[700]
+                          : const Color(0xFF10B981),
+                    ),
+                  ),
+                  Text(
+                    assignedCompany == null
+                        ? 'Company: Not assigned'
+                        : 'Company: ${assignedCompany['full_name']}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: assignedCompany == null
+                          ? Colors.orange[700]
+                          : const Color(0xFF10B981),
+                    ),
+                  ),
                 ],
               ),
               trailing: ElevatedButton(
@@ -624,7 +649,9 @@ class _AssignSupervisorScreenState extends State<AssignSupervisorScreen>
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
-              await _removeAssignment(student['id']);
+              final assignmentType =
+                  supervisor['supervisors']?['supervisor_type'] ?? 'university';
+              await _removeAssignment(student['id'], assignmentType);
             },
             child: const Text('Remove'),
           ),

@@ -2,6 +2,7 @@ class AppRoutes {
   // Auth routes
   static const String splash = '/';
   static const String login = '/login';
+  static const String selfRegister = '/register';
   
   // Student routes
   static const String studentDashboard = '/student/dashboard';

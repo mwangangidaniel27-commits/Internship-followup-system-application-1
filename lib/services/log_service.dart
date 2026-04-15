@@ -27,7 +27,7 @@ class LogService {
 
       final response = await _supabase
           .from('weekly_logs')
-          .select('*')
+          .select('id, student_id, week_number, log_date, description, status, submitted_at, reviewed_at, created_at, updated_at, company_verification_status, company_verified_by, company_verified_at')
           .eq('student_id', studentId)
           .order('week_number', ascending: false);
 
@@ -73,7 +73,7 @@ class LogService {
     try {
       final response = await _supabase
           .from('weekly_logs')
-          .select('*')
+          .select('id, student_id, week_number, log_date, description, status, submitted_at, reviewed_at, created_at, updated_at, company_verification_status, company_verified_by, company_verified_at')
           .eq('student_id', studentId)
           .order('week_number', ascending: false)
           .limit(3);
@@ -112,7 +112,7 @@ class LogService {
     try {
       final response = await _supabase
           .from('weekly_logs')
-          .select('*')
+          .select('id, student_id, week_number, log_date, description, status, submitted_at, reviewed_at, created_at, updated_at, company_verification_status, company_verified_by, company_verified_at')
           .eq('id', logId)
           .single();
 
